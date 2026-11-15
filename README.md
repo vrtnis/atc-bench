@@ -2,7 +2,9 @@
 
 Can a model listen to air traffic control and catch what the controllers got wrong?
 
-<!-- OVERVIEW: the author's own paragraph goes here, under a "## Overview" heading. -->
+## Overview
+
+ATC-Bench asks whether an AI model can listen to air traffic control and catch what the controllers got wrong. Having flown general aviation aircraft myself, I was curious whether AI models would catch the kinds of situations I've come across on the radio. Each task is six or seven minutes of scripted radio and radar at a made-up airport. The model gets it one minute at a time and can only carry a small notes file forward. Btw, that's how controllers work too, with their flight strips. At the end the model audits the controllers against the FAA handbook. The best models caught about 85% of the planted failures. That said, the top three each got only one recording in six completely right.
 
 ![Audit accuracy by model](figures/leaderboard.png)
 
