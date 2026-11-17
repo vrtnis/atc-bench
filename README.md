@@ -15,7 +15,7 @@ ATC-Bench asks whether an AI model can listen to air traffic control and catch w
 - `scoring/`: the scorer (`score.py`) and the judge (`judge.py`).
 - `figures/` and `results/`: the charts on this page and the numbers behind them.
 
-The six test tasks, their answer keys and the script that generates them are kept private so models can't train on them. This page also leaves out what the test episodes contain. All of it is available to the Vals team privately.
+The six test tasks, their answer keys and the script that generates them are kept private so models can't train on them. This page also leaves out what the test episodes contain.
 
 ## How it works
 
