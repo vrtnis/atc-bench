@@ -1,0 +1,476 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ATC-Bench</title>
+<meta name="description" content="ATC-Bench: can a model audit air traffic control from a transcript, one minute at a time?">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Inter:wght@400;500;600&family=Source+Serif+4:opsz,wght@8..60,400;8..60,500&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#0b1014;--panel:#10171d;--scope:#070b0e;--ink:#dcdad2;--dim:#a3a198;--mute:#77756e;--line:rgba(220,218,210,.14);--line2:rgba(220,218,210,.28);--green:#6fcf97;--greenbg:rgba(111,207,151,.16);--amber:#ffb000;--amberbg:rgba(255,176,0,.14);--blue:#86b6ef;--coral:#f0907c;--coralbg:rgba(240,144,124,.14);--tan:#cdbf96;--serif:"Source Serif 4",Georgia,serif;--sans:Inter,system-ui,-apple-system,"Segoe UI",sans-serif;--mono:"IBM Plex Mono",Consolas,Menlo,monospace}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.65 var(--sans)}
+main{max-width:760px;margin:0 auto;padding:64px 24px 96px}
+a{color:var(--green);text-underline-offset:3px}
+h1{font:400 clamp(38px,7vw,52px)/1.1 var(--serif);margin:18px 0 10px;color:#f3f1ea}
+h2{font:400 30px/1.2 var(--serif);margin:80px 0 14px;color:#f3f1ea}
+h3{font:500 20px/1.3 var(--serif);margin:36px 0 8px;color:#f3f1ea}
+p{margin:0 0 16px}
+.tags{display:flex;gap:8px;flex-wrap:wrap}
+.tags span,.label{font:500 12px/1.4 var(--mono);letter-spacing:.1em;text-transform:uppercase}
+.tags span{border:1px solid var(--line2);padding:5px 10px;color:var(--dim)}
+.tags span:first-child::before{content:"";display:inline-block;width:8px;height:8px;background:var(--green);margin-right:8px}
+.label{color:var(--tan);margin:56px 0 12px}
+.updated{font:12px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--tan)}
+.lede{font:400 21px/1.55 var(--serif);color:#eceae2;margin:26px 0 14px}
+.why{font-size:15.5px;line-height:1.6;color:var(--ink);margin:0 0 16px;padding-left:12px;border-left:2px solid var(--green)}
+.why b{display:block;font:500 12px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--tan);margin-bottom:2px}
+.by{font-size:15px;color:var(--dim)}
+.take{font:400 21px/1.45 var(--serif);color:#f3f1ea;margin:22px 0 8px}
+.cap{font-size:14.5px;color:var(--dim);margin:0 0 8px}
+.tabs{display:flex;flex-wrap:wrap}
+.tabs button{font:500 12px var(--mono);letter-spacing:.1em;text-transform:uppercase;background:transparent;color:var(--dim);border:1px solid var(--line2);margin:0 -1px -1px 0;padding:9px 13px;cursor:pointer}
+.tabs button[aria-pressed=true]{background:var(--green);color:#08130c;border-color:var(--green)}
+.tabs button:focus-visible,.line:focus-visible,.flag:focus-visible,.btn:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+.bars{margin-top:18px}
+.row{display:grid;grid-template-columns:150px minmax(0,1fr) 104px;gap:12px;align-items:center;margin-bottom:6px}
+.row .name{font-weight:600;font-size:15px}
+.row .val{font:13px var(--mono);color:var(--ink);white-space:nowrap}
+.track{background:rgba(220,218,210,.05);padding:7px 0;display:flex;flex-direction:column;gap:4px;min-height:34px;justify-content:center}
+.bar{display:block;height:12px}
+.bar.g{background:var(--green)}
+.bar.b{background:var(--blue)}
+.axis{display:grid;grid-template-columns:150px minmax(0,1fr) 104px;gap:12px;font:12px var(--mono);color:var(--mute)}
+.axis div{display:flex;justify-content:space-between}
+.key{display:flex;gap:18px;font:12px var(--mono);color:var(--dim);margin-top:10px}
+.key i{display:inline-block;width:12px;height:12px;margin-right:6px;vertical-align:-1px}
+.tablehead{display:flex;justify-content:space-between;align-items:end;gap:12px;flex-wrap:wrap}
+.tablehead .label{margin-bottom:0}
+.scroll{overflow-x:auto}
+table{width:100%;border-collapse:collapse;margin-top:12px;font-size:15px;min-width:600px}
+th{font:500 12px var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--dim);text-align:right;padding:8px;border-bottom:1px solid var(--line2);vertical-align:bottom}
+td{padding:10px 8px;border-bottom:1px solid var(--line);text-align:right;font-variant-numeric:tabular-nums}
+th:first-child,td:first-child{text-align:left;padding-left:14px}
+td:first-child{font-weight:600;white-space:nowrap}
+#scores td{transition:background .15s ease,color .15s ease,box-shadow .15s ease}
+#scores tr:hover td{background:rgba(111,207,151,.18);color:#eafff2;border-bottom-color:rgba(111,207,151,.55)}
+#scores tr:hover td:first-child{box-shadow:inset 3px 0 0 var(--green);color:var(--green)}
+svg text{font-family:var(--mono)}
+.strip{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font:12px var(--mono);color:var(--dim)}
+.strip span{border:1px solid var(--line2);padding:8px 10px;background:var(--scope);color:var(--ink)}
+.strip span small{display:block;color:var(--green);font-size:11px}
+.strip .audit{background:#1f5aa6;border-color:#1f5aa6;color:#fff}
+.notesbar{font:12px var(--mono);border:1px solid var(--line2);padding:8px 10px;margin-top:6px;color:var(--dim)}
+.lab{border:1px solid var(--line2);background:var(--panel);padding:16px;margin-top:18px}
+.labgrid{display:grid;grid-template-columns:minmax(0,340px) minmax(0,1fr);gap:16px}
+@media (max-width:720px){.labgrid{grid-template-columns:minmax(0,1fr)}.row,.axis{grid-template-columns:104px minmax(0,1fr) 92px}}
+.scope{width:100%;aspect-ratio:1;display:block;background:var(--scope);border:1px solid var(--line)}
+.ctrl{display:flex;gap:8px;align-items:center;margin-top:10px;font:12px var(--mono);color:var(--dim);flex-wrap:wrap}
+.ctrl input[type=range]{flex:1;min-width:120px;accent-color:var(--green)}
+.btn{font:500 12px var(--mono);letter-spacing:.06em;text-transform:uppercase;background:transparent;color:var(--ink);border:1px solid var(--line2);padding:7px 11px;cursor:pointer}
+.btn.primary{background:var(--green);border-color:var(--green);color:#08130c}
+.btn[aria-pressed=true]{background:var(--greenbg);border-color:var(--green);color:var(--green)}
+.readout{font:13px/1.5 var(--mono);color:var(--ink);min-height:40px;margin-top:10px}
+.radio{max-height:470px;overflow-y:auto;border:1px solid var(--line);background:var(--scope)}
+.linewrap{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:stretch;border-bottom:1px solid rgba(220,218,210,.06)}
+.line{font:13px/1.5 var(--mono);text-align:left;background:transparent;border:0;border-left:3px solid transparent;color:var(--ink);padding:6px 8px;cursor:pointer;width:100%}
+.line .t{color:var(--mute)}
+.line .c{color:var(--green)}
+.linewrap.on .line{border-left-color:var(--green);background:rgba(111,207,151,.07)}
+.flag{font:11px var(--mono);letter-spacing:.06em;text-transform:uppercase;background:transparent;border:0;border-left:1px solid rgba(220,218,210,.06);color:var(--mute);padding:0 10px;cursor:pointer;min-width:74px}
+.flag[aria-pressed=true]{background:var(--amberbg);color:var(--amber)}
+.linewrap.failure .line{background:var(--coralbg)}
+.linewrap.lookalike .line{background:var(--greenbg)}
+.linewrap .tag{display:none}
+.linewrap.failure .tag,.linewrap.lookalike .tag{display:inline;font-size:11px;letter-spacing:.06em;text-transform:uppercase;margin-left:8px}
+.linewrap.failure .tag{color:var(--coral)}
+.linewrap.lookalike .tag{color:var(--green)}
+.result{margin-top:16px;border-top:1px solid var(--line2);padding-top:14px}
+.result .score{font:400 21px/1.4 var(--serif);color:#f3f1ea;margin-bottom:12px}
+.ev{display:grid;grid-template-columns:112px minmax(0,1fr);gap:12px;padding:10px 0;border-top:1px solid var(--line);font-size:15px}
+.ev b{display:block;font-weight:600}
+.ev .st{font:12px var(--mono);letter-spacing:.06em;text-transform:uppercase}
+.ev .st.good{color:var(--green)}
+.ev .st.bad{color:var(--coral)}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:0;border-top:1px solid var(--line2);margin-top:12px}
+.cards div{padding:14px 16px 14px 0;font-size:15px}
+.cards .label{margin:0 0 6px;color:var(--green)}
+.panelrow{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:16px;margin-top:14px}
+.screen{background:var(--scope);border:1px solid var(--line);padding:12px 14px;font:13px/1.6 var(--mono)}
+.screen .t{color:var(--mute)}
+.screen .c{color:var(--green)}
+.paper{background:#eceae2;color:#191a17;padding:12px 14px;font:13px/1.6 var(--mono);box-shadow:5px 5px 0 #b9b7ae}
+.verdict{display:flex;align-items:center;gap:12px;margin-top:14px;font:12px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--dim)}
+.verdict b{background:var(--coral);color:#1b0b07;padding:6px 14px;font-weight:500}
+ul{padding-left:20px;margin:0 0 16px}
+li{margin-bottom:6px}
+code{font:13.5px var(--mono);color:var(--tan)}
+footer{margin-top:72px;border-top:1px solid var(--line2);padding-top:18px;font-size:14.5px;color:var(--dim)}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+.hero{position:relative;min-height:min(88vh,660px);display:flex;align-items:center;overflow:hidden;border-bottom:1px solid var(--line)}
+.herowrap{position:relative;width:100%;max-width:760px;margin:0 auto;padding:104px 24px 64px}
+.hero + main{padding-top:8px}
+#hero{position:absolute;top:0;right:0;width:min(72vw,940px);height:100%;-webkit-mask-image:linear-gradient(to right,transparent 0,transparent 20%,#000 56%);mask-image:linear-gradient(to right,transparent 0,transparent 20%,#000 56%)}
+.herotext{position:relative;max-width:540px}
+.herotext h1{margin-top:18px}
+.hud{position:absolute;right:28px;bottom:18px;font:11px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:rgba(111,207,151,.8)}
+@media (max-width:900px){#hero{width:100vw;opacity:.4}.hud{display:none}}
+.rv{opacity:0;transform:translateY(18px);transition:opacity .7s ease,transform .7s cubic-bezier(.2,.7,.2,1)}
+.rv.in{opacity:1;transform:none}
+.bar{transition:width 1s cubic-bezier(.2,.7,.2,1)}
+html.js #scatter .pt{opacity:0;transform:scale(.2);transform-box:fill-box;transform-origin:center;transition:opacity .4s ease,transform .5s cubic-bezier(.2,1.5,.4,1)}
+html.js #scatter .pl{opacity:0;transition:opacity .4s ease}
+html.js #scatter.in .pt{opacity:1;transform:none}
+html.js #scatter.in .pl{opacity:1}
+@keyframes lit{0%{border-color:var(--line2)}45%{border-color:var(--green);background:#10281c}100%{border-color:var(--green)}}
+@keyframes pop{0%{transform:scale(.86);opacity:.35}100%{transform:none;opacity:1}}
+html.js .strip.in span:not(.audit){animation:lit .9s ease both}
+html.js .strip.in span:nth-of-type(1){animation-delay:.25s}
+html.js .strip.in span:nth-of-type(2){animation-delay:.6s}
+html.js .strip.in span:nth-of-type(3){animation-delay:.95s}
+html.js .strip.in span:nth-of-type(4){animation-delay:1.45s}
+html.js .strip .audit{opacity:.35}
+html.js .strip.in .audit{animation:pop .45s ease 1.95s both}
+.notesbar{position:relative;overflow:hidden}
+.notesbar::before{content:"";position:absolute;left:0;top:0;bottom:0;width:100%;background:rgba(111,207,151,.13);transform-origin:left;transition:transform 1.9s linear .25s}
+html.js .notesbar::before{transform:scaleX(0)}
+html.js .notesbar.in::before{transform:scaleX(1)}
+.notesbar span{position:relative}
+@keyframes wipe{from{clip-path:inset(0 100% 0 0)}to{clip-path:inset(0 0 0 0)}}
+html.js .panelrow .tl{clip-path:inset(0 100% 0 0)}
+html.js .panelrow.in .tl{animation:wipe 1s steps(34) .2s forwards}
+html.js .panelrow.in .tl+.tl{animation-delay:1.3s}
+html.js .panelrow .paper{opacity:0;transform:translateY(10px);transition:opacity .5s ease 2.5s,transform .5s ease 2.5s}
+html.js .panelrow.in .paper{opacity:1;transform:none}
+html.js .panelrow .verdict{opacity:0;transition:opacity .3s ease 3.1s}
+html.js .panelrow.in .verdict{opacity:1}
+html.js .panelrow .verdict b{transform:scale(.5);transition:transform .3s cubic-bezier(.2,1.7,.4,1) 3.2s}
+html.js .panelrow.in .verdict b{transform:none}
+.tape{position:fixed;right:40px;top:110px;bottom:110px;width:1px;display:none;font:11px/1.35 var(--mono);color:var(--green);pointer-events:none;z-index:2}
+@media (min-width:1180px){.tape{display:block}}
+.tape::before{content:"";position:absolute;top:0;bottom:0;left:0;border-left:1px dashed rgba(111,207,151,.5)}
+.tape .end{position:absolute;right:14px;white-space:nowrap;color:var(--mute);letter-spacing:.1em;text-transform:uppercase}
+.tape .end.a{top:-26px;right:-22px}
+.tape .end.b{bottom:-26px;right:-22px}
+.tape .rwy{position:absolute;bottom:-2px;left:-10px;width:21px;border-top:2px solid var(--ink)}
+.plane{position:absolute;left:-4px;top:-4px;width:9px;height:9px;background:var(--green);will-change:transform}
+.plane .db{position:absolute;right:18px;top:-10px;white-space:nowrap;text-align:right}
+@media (prefers-reduced-motion:reduce){
+.rv,.bar,html.js #scatter .pt,html.js #scatter .pl,html.js .panelrow .tl,html.js .panelrow .paper,html.js .panelrow .verdict,html.js .panelrow .verdict b,html.js .strip span,html.js .strip .audit,html.js .notesbar::before{transition:none!important;animation:none!important;opacity:1!important;transform:none!important;clip-path:none!important}
+}
+</style>
+</head>
+<body>
+<header class="hero"><canvas id="hero" aria-hidden="true"></canvas><div class="hud" id="hud" aria-hidden="true"></div><div class="herowrap"><div class="herotext">
+<div class="tags"><span>Benchmark</span><span>Build your own eval</span></div>
+<h1>ATC-Bench</h1>
+<div class="updated">Updated 11/17/2026</div>
+<p class="lede">Can a model audit air traffic control from a transcript, one minute at a time? Eight frontier models read scripted transcripts of a busy airport and check them against the FAA handbook, listing every place a requirement was not met. The best one finds 85% of the scripted failures.</p>
+<p class="why"><b>Why it matters</b>Auditing hours of activity against a written rulebook is slow expert work, and a model that does it reliably could review all of it, in aviation and in any other field with rules to check.</p>
+<p class="by"><a href="https://github.com/vrtnis">vrtnis</a> · Built at the Vals AI hackathon · <a href="https://github.com/vrtnis/atc-bench">Code and sample tasks on GitHub</a></p>
+</div></div></header>
+<main>
+
+<div class="label">ATC-Bench results · 6 private transcripts · 46 failures + 41 look-alikes</div>
+<div class="tabs" id="tabs" role="group" aria-label="What the chart shows"></div>
+<div class="bars" id="bars"></div>
+<div class="axis" aria-hidden="true"><span></span><div><span>0%</span><span>25%</span><span>50%</span><span>75%</span><span>100%</span></div><span></span></div>
+<p class="take" id="take"></p>
+<p class="cap" id="cap"></p>
+
+<div class="label">Scores</div>
+<div class="scroll"><table id="scores"></table></div>
+<p class="cap" id="tablenote"></p>
+
+<div class="label">Two skills · keeping the facts and auditing them</div>
+<svg id="scatter" viewBox="0 0 720 400" role="img" aria-labelledby="sct"><title id="sct">Audit accuracy against the share of factual questions answered correctly, one dot per model.</title></svg>
+<p class="take">Six of the eight models answer more than 90% of the factual questions. The audit spreads those six from 43% to 85%.</p>
+<p class="cap">The factual questions ask what was said and where the aircraft are, such as an aircraft's last cleared altitude. The audit asks the model to match those facts to a rule. Claude Opus 5.5 gets 93% of the facts and 56% on the audit.</p>
+
+<h2>Background</h2>
+<p>Air traffic controllers talk about "keeping the picture". It means following a lot of aircraft at once, remembering what each one was told, and noticing when what an aircraft is doing stops matching that.</p>
+<p>A lot of the work people want from AI agents has the same shape: watching a long, busy stream and checking it against written rules. Air traffic control is a good place to test it, because the rules are public. FAA Order JO 7110.65, the air traffic control handbook, sets out what is required, so every answer can be checked against the text.</p>
+<p>Each task is one scripted transcript of six or seven busy minutes at a made-up US airport, with 16 or 17 aircraft, three radio frequencies, the phone line between the controllers, and radar positions every five seconds. The model reads it one minute at a time and starts each minute with no memory of the last one.</p>
+<div class="strip" aria-label="The task, step by step"><span>Minute 1<small>radio + radar</small></span><span>Minute 2<small>radio + radar</small></span><span>Minute 3<small>radio + radar</small></span>…<span>Last minute<small>radio + radar</small></span>→<span class="audit">Audit<small style="color:#cfe0f5">from its notes</small></span></div>
+<div class="notesbar"><span>notes.md · all the model carries forward</span></div>
+<p style="margin-top:16px">All the model keeps between minutes is a small notes file, about two pages for a sixteen-page transcript. The notes file is there because controllers work from written notes too. Paragraph 2-3-1 of the order has them post current traffic and clearances on flight progress strips and "maintain only necessary current data".</p>
+<p>After the last minute the transcript is taken away, and the model sees the questions for the first time. The main one is an audit: list every instance where a requirement of the order was not met. The model is the auditor and never directs traffic itself.</p>
+
+<h2>Audit a minute yourself</h2>
+<p>This is minute four of the public sample. Everything the model gets is text. On the right is the written transcript of the radio, the same lines the model reads, with no speaker labels. The radar positions reach the model as a table of numbers, and here they are drawn as a scope.</p>
+<p>Three scripted failures and two look-alikes are in this minute. A look-alike is the same kind of event handled correctly. Select a line of the transcript to move the radar to that moment, flag every line you would report, then check your audit.</p>
+<div class="lab">
+ <div class="labgrid">
+  <div>
+   <svg class="scope" id="scope" viewBox="0 0 400 400" role="img" aria-label="Radar scope"></svg>
+   <div class="ctrl"><button class="btn" id="play" type="button">Play</button><input type="range" id="time" min="180" max="240" step="5" value="180" aria-label="Time in the transcript"><span id="clock">03:00</span></div>
+   <div class="ctrl"><button class="btn" id="zoomnear" type="button" aria-pressed="true">Near the airport</button><button class="btn" id="zoomall" type="button" aria-pressed="false">All 40 miles</button></div>
+   <div class="readout" id="readout" aria-live="polite"></div>
+  </div>
+  <div>
+   <div class="radio" id="radio"></div>
+   <div class="ctrl"><button class="btn primary" id="check" type="button">Check audit</button><button class="btn" id="reset" type="button">Reset</button><span id="count">0 lines flagged</span></div>
+  </div>
+ </div>
+ <div class="result" id="result" hidden></div>
+</div>
+<p class="cap" style="margin-top:12px">This page only checks which lines you flagged. The benchmark also grades the written reason for each finding.</p>
+
+<h2>Methodology</h2>
+<h3>What the model does, and how it is scored</h3>
+<p>Each transcript has six to ten scripted failures and four to ten look-alikes. A finding counts for a failure when it names the right position (tower, ground or approach) and one of the aircraft involved. A judge model, Claude Opus 5.5, then grades the written reason against two to four criteria for that failure, and the essential ones must be met.</p>
+<p>Audit accuracy is the share of failures found with every essential criterion met, multiplied by the share of look-alikes left alone, averaged over the transcripts. Reporting something that isn't scripted neither helps nor hurts.</p>
+<div class="cards">
+ <div><div class="label">01 · Finding</div>Names the right position and one of the aircraft involved.</div>
+ <div><div class="label">02 · Reason</div>Graded by a judge model against a short list of criteria. The essential ones must be met.</div>
+ <div><div class="label">03 · Look-alikes</div>Count against the model only when a finding is about that event.</div>
+</div>
+<h3>Making the benchmark hard to game</h3>
+<ul>
+ <li><b>Look-alikes.</b> A model that flags everything unusual loses credit, because the score is multiplied by the share of look-alikes left alone.</li>
+ <li><b>A private test set.</b> The six test transcripts, their answer keys and the generator are not published. This page describes only the public sample.</li>
+ <li><b>A clean start every minute.</b> Each minute is a new conversation. A script cuts the notes to the limit and deletes everything else in the working folder, and files written anywhere else are reported with the score.</li>
+ <li><b>No public internet.</b> The sandbox can reach the two model providers and nothing else.</li>
+ <li><b>The questions come last.</b> The model doesn't see them until the transcript is gone, so it can't take notes aimed at them.</li>
+</ul>
+
+<h3>How it was run</h3>
+<p>Every model ran on mini-SWE-agent on Valkyrie, in Modal sandboxes. It works with both Anthropic and OpenAI models, so each one gets the same harness, and it gives the model only a shell. Each minute gets 300 seconds and the answer step gets 420.</p>
+
+<h2>What a miss looks like</h2>
+<p>In the minute above, a pilot asks for a turn to get around weather and is refused with nothing else offered. Here is what GPT-6.1 Sol did with it.</p>
+<div class="panelrow">
+ <div><div class="label" style="margin-top:0">On the radio</div><div class="screen"><div class="tl"><span class="t">03:30</span> <span class="c">[119.1]</span> Approach, Envoy two six three seven, like to come right 30 degrees for weather</div><div class="tl"><span class="t">03:35</span> <span class="c">[119.1]</span> envoy two six three seven, unable, traffic off your right</div></div></div>
+ <div><div class="label" style="margin-top:0">In GPT-6.1 Sol's notes</div><div class="paper">03:30 request right30deg weather;:35 UNABLE traffic right;:39 roger. No deviation/descent authorized.</div>
+ <div class="verdict">In Sol's audit <b>Missed</b></div></div>
+</div>
+<p style="margin-top:18px">Sol wrote the exchange down accurately and then left it out of its audit. Claude Opus 5.5 didn't report it either. Sol scored 70.0% on this transcript and Opus scored 80.0%.</p>
+
+<h2>Discussion</h2>
+<h3>What the results say</h3>
+<ul>
+ <li><b>The top three are level.</b> Each model ran once, so a gap of less than about ten points is noise.</li>
+ <li><b>Finding most failures is different from finding all of them.</b> Claude Fable 5.2 passed 39 of 46 failures and flagged no look-alikes. It audited one transcript in six without a miss, because each transcript has about eight failures.</li>
+ <li><b>Models rarely flag a look-alike.</b> The low scores come from missed failures.</li>
+ <li><b>Cost varies a lot.</b> The six transcripts cost $2.58 with GPT-6.1 Sol and about $54 with Claude Fable 5.2, for the same score.</li>
+</ul>
+<h3>Limitations</h3>
+<ul>
+ <li>Each model ran once, on 46 failures.</li>
+ <li>No controller has reviewed the answer keys.</li>
+ <li>The traffic is simulated, the airport is made up, and the notes limit is a number chosen for this benchmark.</li>
+ <li>The judge is also one of the models tested. Claude Opus 5.5 graded every model including itself, and it ranked itself fifth.</li>
+</ul>
+<h2>Conclusion</h2>
+<p>ATC-Bench measures one specific skill: following a long, busy stretch of activity with only a few notes to lean on, then auditing it against a written rulebook. Other benchmarks test whether a model understands <a href="https://arxiv.org/abs/2605.11769">single radio calls</a>, or have the model <a href="https://arxiv.org/abs/2608.19299">direct the traffic itself</a>. ATC-Bench adds a different test: auditing a whole stretch of traffic from the model's own notes.</p>
+<p>For aviation, it is a first measure of whether models could help with safety review against the FAA handbook. Going by these results, the answer today is "not without a person checking".</p>
+<p>The same kind of work shows up well outside aviation too. Compliance monitoring, call quality review and control rooms all come down to watching a lot happen and checking it against the rules.</p>
+
+<footer>Two public sample tasks, the scorer and the judge are in the <a href="https://github.com/vrtnis/atc-bench">GitHub repo</a>. The <a href="https://github.com/vrtnis/atc-bench/blob/main/DETAILS.md">full write-up</a> has every table and the run IDs.</footer>
+</main>
+<div class="tape" aria-hidden="true"><span class="end a">10,000 ft</span><span class="end b">runway</span><span class="rwy"></span><div class="plane" id="plane"><div class="db" id="db"></div></div></div>
+
+<script id="data" type="application/json">{"models":[{"id":"claude-fable-5-2","name":"Claude Fable 5.2","short":"Fable 5.2","audit6":85.0,"passed6":39,"kept6":41,"facts6":97.7,"clean6":1,"cost":"about $54"},{"id":"gpt-6.1-sol","name":"GPT-6.1 Sol","short":"Sol","audit6":84.0,"passed6":39,"kept6":41,"facts6":97.4,"clean6":1,"cost":"$2.58"},{"id":"gpt-6-astra","name":"GPT-6 Astra","short":"Astra","audit6":79.6,"passed6":38,"kept6":40,"facts6":95.8,"clean6":1,"cost":"$14.11"},{"id":"gpt-6.1-terra","name":"GPT-6.1 Terra","short":"Terra","audit6":69.4,"passed6":32,"kept6":41,"facts6":91.3,"clean6":0,"cost":"about $2.20"},{"id":"claude-opus-5-5","name":"Claude Opus 5.5","short":"Opus 5.5","audit6":55.8,"passed6":26,"kept6":39,"facts6":93.1,"clean6":0,"cost":"$7.41"},{"id":"claude-sonnet-5-5","name":"Claude Sonnet 5.5","short":"Sonnet 5.5","audit6":43.0,"passed6":20,"kept6":40,"facts6":91.2,"clean6":0,"cost":"$4.47"},{"id":"claude-haiku-5-5","name":"Claude Haiku 5.5","short":"Haiku 5.5","audit6":22.7,"passed6":12,"kept6":36,"facts6":84.3,"clean6":0,"cost":"$0.74"},{"id":"gpt-6-luna","name":"GPT-6 Luna","short":"Luna","audit6":14.1,"passed6":6,"kept6":36,"facts6":59.6,"clean6":0,"cost":"$0.22"}],"failures":46,"lookalikes":41,"minute":{"start":185,"end":240,"lines":[{"t":"03:01","s":181,"ch":"118.3","text":"Descending 4,000, November 4 7 2 Foxtrot Foxtrot","ac":["N472FF"],"ev":null},{"t":"03:03","s":183,"ch":"119.1","text":"alaska forty seventy-six heavy, expect lower in 10 miles","ac":["ASA4076"],"ev":null},{"t":"03:05","s":185,"ch":"118.3","text":"seven zero zero tango yankee, change of plan, plan runway two seven right now","ac":["N700TY"],"ev":null},{"t":"03:07","s":187,"ch":"119.1","text":"november one three seven papa echo, climb six thousand","ac":["N137PE","AAL2100"],"ev":"readback"},{"t":"03:10","s":190,"ch":"118.3","text":"Ah, runway two seven right now, November 7 0 0 Tango Yankee","ac":["N700TY"],"ev":null},{"t":"03:12","s":192,"ch":"119.1","text":"ah, out of here for seven thousand, November one three seven papa echo","ac":["N137PE","AAL2100"],"ev":"readback"},{"t":"03:14","s":194,"ch":"118.3","text":"United 1517, reduce speed to 130","ac":["UAL1517"],"ev":"speed"},{"t":"03:16","s":196,"ch":"119.1","text":"five six eight bravo uniform, reduce speed to 210","ac":["N568BU","ASA4076"],"ev":"wake"},{"t":"03:18","s":198,"ch":"121.9","text":"[two stations at once]","ac":[],"ev":null},{"t":"03:18","s":198,"ch":"118.3","text":"southwest 5657, right turn heading three three zero","ac":["SWA5657"],"ev":null},{"t":"03:21","s":201,"ch":"119.1","text":"Reducing to 210, November 5 6 8 Bravo Uniform","ac":["N568BU","ASA4076"],"ev":"wake"},{"t":"03:21","s":201,"ch":"121.9","text":"Station calling, say again","ac":[],"ev":null},{"t":"03:23","s":203,"ch":"118.3","text":"Uh, right three three zero, Southwest fifty-seven","ac":["SWA5657"],"ev":null},{"t":"03:25","s":205,"ch":"121.9","text":"Ground, Fire 2, repositioning to gate 27","ac":[],"ev":null},{"t":"03:27","s":207,"ch":"118.3","text":"[two stations at once]","ac":[],"ev":null},{"t":"03:29","s":209,"ch":"121.9","text":"Fire 2, roger","ac":[],"ev":null},{"t":"03:30","s":210,"ch":"119.1","text":"Approach, Envoy two six three seven, like to come right 30 degrees for weather","ac":["ENY2637"],"ev":"weather"},{"t":"03:30","s":210,"ch":"118.3","text":"Blocked, say again","ac":[],"ev":null},{"t":"03:33","s":213,"ch":"121.9","text":"Ground, Fire 2, on Alpha, proceeding to the fire station","ac":[],"ev":null},{"t":"03:34","s":214,"ch":"118.3","text":"And zero tango yankee, any chance of a short approach?","ac":["N700TY"],"ev":null},{"t":"03:35","s":215,"ch":"119.1","text":"envoy two six three seven, unable, traffic off your right","ac":["ENY2637"],"ev":"weather"},{"t":"03:37","s":217,"ch":"121.9","text":"Fire 2, proceed via Alpha","ac":[],"ev":null},{"t":"03:38","s":218,"ch":"118.3","text":"November 7 0 0 Tango Yankee, unable, continue as cleared","ac":["N700TY"],"ev":null},{"t":"03:39","s":219,"ch":"119.1","text":"Roger, Envoy two six three seven","ac":["ENY2637"],"ev":"weather"},{"t":"03:42","s":222,"ch":"118.3","text":"seven zero zero tango yankee, cleared visual approach runway two seven right","ac":["N700TY"],"ev":null},{"t":"03:47","s":227,"ch":"118.3","text":"ah, cleared for the visual two seven right, November seven zero zero tango yankee","ac":["N700TY"],"ev":null},{"t":"03:51","s":231,"ch":"118.3","text":"November seven zero zero tango yankee, reduce speed to 150","ac":["N700TY"],"ev":"speedok"},{"t":"03:55","s":235,"ch":"118.3","text":"reducing to 150, seven zero zero tango yankee","ac":["N700TY"],"ev":"speedok"},{"t":"04:00","s":240,"ch":"118.3","text":"four seven two foxtrot foxtrot, change of plan, expect 27R now","ac":["N472FF"],"ev":null}],"tracks":{"AAL2100":[[185,-3.6,-32.08,7000,180],[190,-3.35,-32.08,7000,180],[195,-3.1,-32.08,7000,180],[200,-2.85,-32.08,7000,180],[205,-2.6,-32.08,7000,180],[210,-2.35,-32.08,7000,180],[215,-2.1,-32.08,7000,180],[220,-1.85,-32.08,7000,180],[225,-1.6,-32.08,7000,180],[230,-1.35,-32.08,7000,180],[235,-1.1,-32.08,7000,180],[240,-0.85,-32.08,7000,180]],"ASA4076":[[185,25.75,2.44,10000,210],[190,25.75,2.15,10000,210],[195,25.75,1.86,10000,210],[200,25.75,1.57,10000,210],[205,25.75,1.28,10000,210],[210,25.75,0.99,10000,210],[215,25.75,0.69,10000,210],[220,25.75,0.4,10000,210],[225,25.75,0.11,10000,210],[230,25.75,-0.18,10000,210],[235,25.75,-0.47,10000,210],[240,25.75,-0.76,10000,210]],"ENY2637":[[185,-0.69,30.49,7000,180],[190,-0.44,30.49,7000,180],[195,-0.19,30.49,7000,180],[200,0.06,30.49,7000,180],[205,0.31,30.49,7000,180],[210,0.56,30.49,7000,180],[215,0.81,30.49,7000,180],[220,1.06,30.49,7000,180],[225,1.31,30.49,7000,180],[230,1.56,30.49,7000,180],[235,1.81,30.49,7000,180],[240,2.06,30.49,7000,180]],"JBU4817":[[185,-6.34,25.49,7000,210],[190,-6.05,25.49,7000,210],[195,-5.76,25.49,7000,210],[200,-5.47,25.49,7000,210],[205,-5.17,25.49,7000,210],[210,-4.88,25.49,7000,210],[215,-4.59,25.49,7000,210],[220,-4.3,25.49,7000,210],[225,-4.01,25.49,7000,210],[230,-3.72,25.49,7000,210],[235,-3.42,25.49,7000,210],[240,-3.13,25.49,7000,210]],"N137PE":[[185,-5.6,-32.08,5000,180],[190,-5.35,-32.08,5000,180],[195,-5.1,-32.08,5050,180],[200,-4.85,-32.08,5180,180],[205,-4.6,-32.08,5300,180],[210,-4.35,-32.08,5420,180],[215,-4.1,-32.08,5550,180],[220,-3.85,-32.08,5680,180],[225,-3.6,-32.08,5800,180],[230,-3.35,-32.08,5920,180],[235,-3.1,-32.08,6050,180],[240,-2.85,-32.08,6180,180]],"N210NY":[[185,3.28,-5.86,7000,150],[190,3.13,-5.72,7000,150],[195,2.97,-5.59,7000,150],[200,2.81,-5.45,7000,150],[205,2.65,-5.32,7000,150],[210,2.49,-5.19,7000,150],[215,2.33,-5.05,7000,150],[220,2.17,-4.92,7000,150],[225,2.01,-4.78,7000,150],[230,1.85,-4.65,7000,150],[235,1.69,-4.52,7000,150],[240,1.53,-4.38,7000,150]],"N472FF":[[185,14.45,-0.0,4930,180],[190,14.2,-0.0,4820,180],[195,13.95,-0.0,4710,180],[200,13.7,-0.0,4600,180],[205,13.45,-0.0,4490,180],[210,13.2,-0.0,4380,180],[215,12.95,-0.0,4270,180],[220,12.7,-0.0,4160,180],[225,12.45,-0.0,4050,180],[230,12.2,-0.0,4000,180],[235,11.95,-0.0,4000,180],[240,11.7,-0.0,4000,180]],"N568BU":[[185,25.75,8.55,10000,250],[190,25.75,8.2,10000,250],[195,25.75,7.85,10000,250],[200,25.75,7.51,10000,250],[205,25.75,7.16,10000,248],[210,25.75,6.82,10000,238],[215,25.75,6.5,10000,228],[220,25.75,6.19,10000,218],[225,25.75,5.9,10000,210],[230,25.75,5.61,10000,210],[235,25.75,5.31,10000,210],[240,25.75,5.02,10000,210]],"N700TY":[[185,8.59,-0.0,3100,180],[190,8.34,0.0,3000,180],[195,8.09,0.0,3000,180],[200,7.84,0.0,3000,180],[205,7.59,0.0,3000,180],[210,7.34,0.0,3000,180],[215,7.09,0.0,3000,180],[220,6.84,0.0,3000,180],[225,6.59,0.0,2930,180],[230,6.34,0.0,2820,180],[235,6.09,0.0,2710,180],[240,5.87,0.0,2600,150]],"N749XY":[[185,-26.44,-2.29,6300,180],[190,-26.44,-2.04,6180,180],[195,-26.44,-1.79,6050,180],[200,-26.44,-1.54,5920,180],[205,-26.44,-1.29,5800,180],[210,-26.44,-1.04,5680,180],[215,-26.44,-0.79,5550,180],[220,-26.44,-0.54,5420,180],[225,-26.44,-0.29,5300,180],[230,-26.44,-0.04,5180,180],[235,-26.44,0.21,5050,180],[240,-26.44,0.46,4920,180]],"SKW1131":[[185,2.53,3.95,4000,190],[190,2.3,3.82,4000,190],[195,2.07,3.68,4000,190],[200,1.84,3.55,4000,190],[205,1.61,3.42,4000,190],[210,1.38,3.29,4000,190],[215,1.16,3.16,4000,190],[220,0.93,3.02,4000,190],[225,0.7,2.89,4000,190],[230,0.47,2.76,4000,190],[235,0.24,2.63,4000,190],[240,0.01,2.5,4000,190]],"SWA1470":[[185,-0.9,0.5,0,0],[190,-0.9,0.5,0,0],[195,-0.9,0.5,0,0],[200,-0.9,0.5,0,0],[205,-0.9,0.5,0,0],[210,-0.9,0.5,0,0],[215,-0.9,0.5,0,0],[220,-0.9,0.5,0,0],[225,-0.9,0.5,0,0],[230,-0.9,0.5,0,0],[235,-0.9,0.5,0,0],[240,-0.9,0.5,0,0]],"SWA4389":[[185,-2.69,25.49,7000,180],[190,-2.44,25.49,7000,180],[195,-2.19,25.49,7000,180],[200,-1.94,25.49,7000,180],[205,-1.69,25.49,7000,180],[210,-1.44,25.49,7000,180],[215,-1.19,25.49,7000,180],[220,-0.94,25.49,7000,180],[225,-0.69,25.49,7000,180],[230,-0.44,25.49,7000,180],[235,-0.19,25.49,7000,180],[240,0.06,25.49,7000,180]],"SWA5657":[[185,5.16,1.71,8000,190],[190,4.9,1.75,8000,190],[195,4.64,1.8,8000,190],[200,4.38,1.84,8000,190],[205,4.12,1.89,8000,190],[210,3.88,1.98,8000,190],[215,3.66,2.12,8000,190],[220,3.48,2.32,8000,190],[225,3.35,2.55,8000,190],[230,3.22,2.78,8000,190],[235,3.09,3.01,8000,190],[240,2.96,3.23,8000,190]],"UAL1517":[[185,3.58,0.0,1140,150],[190,3.37,0.0,1070,150],[195,3.16,0.0,1010,150],[200,2.96,0.0,940,150],[205,2.75,0.0,870,150],[210,2.54,0.0,810,150],[215,2.35,0.03,750,135],[220,2.16,0.06,690,135],[225,1.97,0.09,630,135],[230,1.79,0.12,570,135],[235,1.6,0.15,510,135],[240,1.41,0.18,450,135]],"UAL3320":[[185,4.56,-26.1,7000,180],[190,4.31,-26.1,7000,180],[195,4.06,-26.1,7000,180],[200,3.81,-26.1,7000,180],[205,3.56,-26.1,7000,180],[210,3.31,-26.1,7000,180],[215,3.06,-26.1,7000,180],[220,2.81,-26.1,7000,180],[225,2.56,-26.1,7000,180],[230,2.31,-26.1,7000,180],[235,2.06,-26.1,7000,180],[240,1.81,-26.1,7000,180]]},"events":{"readback":{"kind":"failure","title":"A readback left uncorrected","why":"Approach cleared N137PE to climb to 6,000. The pilot read back 7,000 and the readback was not corrected. The aircraft climbed to 7,000, the altitude of the aircraft two miles ahead of it."},"speed":{"kind":"failure","title":"A speed adjustment inside the final approach fix","why":"United 1517 was about 3.2 miles from the runway. The final approach fix is 5 miles out, and the order allows no speed adjustment inside it. The pilot also never answered, which belongs to a second scripted failure that began in an earlier minute."},"weather":{"kind":"failure","title":"A weather deviation refused with nothing offered","why":"Approach said only that it was unable. When a deviation can't be approved because of traffic, the order calls for the pilot to be offered another way around the weather."},"wake":{"kind":"lookalike","title":"Slowed behind a heavy, in time","why":"N568BU was following a heavy, which needs 5 miles. Approach slowed it while it was still about 6 miles behind, and the spacing stayed above the minimum."},"speedok":{"kind":"lookalike","title":"A speed instruction outside the final approach fix","why":"N700TY was about 6.3 miles from the runway, outside the final approach fix, so the speed instruction was allowed."}}}}</script>
+<script>
+(function(){
+const D = JSON.parse(document.getElementById('data').textContent);
+const $ = (s) => document.querySelector(s);
+const el = (tag, attrs, html) => { const e = document.createElement(tag); for (const k in (attrs||{})) e.setAttribute(k, attrs[k]); if (html != null) e.innerHTML = html; return e; };
+const NS = 'http://www.w3.org/2000/svg';
+const svg = (tag, attrs, text) => { const e = document.createElementNS(NS, tag); for (const k in (attrs||{})) e.setAttribute(k, attrs[k]); if (text != null) e.textContent = text; return e; };
+
+const TABS = {
+ audit: {label: 'Audit accuracy', take: 'Claude Fable 5.2 and GPT-6.1 Sol are level at the top, with GPT-6 Astra close behind.', cap: 'Audit accuracy is the share of scripted failures found with the right reasoning, multiplied by the share of look-alikes left alone. Each model ran once, so a gap under about ten points is noise. * One of Luna’s transcripts scored zero because its answer step ran out of time. On the other five it scores 16.9%.'},
+ found: {label: 'Failures found', take: 'The two best models each find 39 of the 46 scripted failures.', cap: 'Failures passed, out of 46 across the six transcripts. A failure is passed when the finding names the right position and aircraft and the reason meets every essential criterion.'},
+ clean: {label: 'Clean audits', take: 'The top three each audited one transcript in six without a miss. The other five models audited none.', cap: 'A transcript counts when every scripted failure in it is found and no look-alike is flagged. Each transcript has about eight failures, so one miss is enough to lose it.'}
+};
+const still = !window.IntersectionObserver || matchMedia('(prefers-reduced-motion: reduce)').matches;
+const seen = {bars: still};
+const bar = (pct, c) => '<span class="bar ' + c + '" data-w="' + Math.max(pct, 0.8).toFixed(1) + '" style="width:' + (still ? Math.max(pct, 0.8).toFixed(1) + '%' : '0') + '"></span>';
+const grow = () => document.querySelectorAll('#bars .bar').forEach(b => { b.style.width = b.dataset.w + '%'; });
+function chart(k){
+ const box = $('#bars'); box.innerHTML = '';
+ D.models.forEach(m => {
+  let bars = '', val = '';
+  if (k === 'audit') { bars = bar(m.audit6, 'g'); val = m.audit6.toFixed(1) + '%' + (m.id === 'gpt-6-luna' ? '*' : ''); }
+  if (k === 'found') { bars = bar(m.passed6 / D.failures * 100, 'g'); val = m.passed6 + ' of ' + D.failures; }
+  if (k === 'clean') { bars = bar(m.clean6 / 6 * 100, 'g'); val = m.clean6 + ' of 6'; }
+  box.appendChild(el('div', {class: 'row'}, '<div class="name">' + m.name + '</div><div class="track">' + bars + '</div><div class="val">' + val + '</div>'));
+ });
+ $('#take').textContent = TABS[k].take; $('#cap').textContent = TABS[k].cap;
+ document.querySelectorAll('#tabs button').forEach(b => b.setAttribute('aria-pressed', b.dataset.k === k));
+ if (seen.bars) requestAnimationFrame(() => requestAnimationFrame(grow));
+}
+Object.keys(TABS).forEach(k => { const b = el('button', {type: 'button', 'data-k': k}, TABS[k].label); b.onclick = () => chart(k); $('#tabs').appendChild(b); });
+chart('audit');
+
+(function table(){
+ let h = '<tr><th>Model</th><th>Audit accuracy</th><th>Failures passed<br>of ' + D.failures + '</th><th>Look-alikes left alone<br>of ' + D.lookalikes + '</th><th>Factual questions</th><th>Cost of six transcripts</th></tr>';
+ D.models.forEach(m => { h += '<tr><td>' + m.name + '</td><td>' + m.audit6.toFixed(1) + '%' + (m.id === 'gpt-6-luna' ? '*' : '') + '</td><td>' + m.passed6 + '</td><td>' + m.kept6 + '</td><td>' + m.facts6.toFixed(1) + '%</td><td>' + m.cost + '</td></tr>'; });
+ $('#scores').innerHTML = h;
+ $('#tablenote').textContent = '* One of Luna’s transcripts scored zero because its answer step ran out of time. Costs marked "about" are worked out from token counts, because the harness records no cost for those models.';
+})();
+
+(function scatter(){
+ const s = $('#scatter'), L = 62, R = 640, T = 22, B = 344, x0 = 55, x1 = 100;
+ const X = v => L + (v - x0) / (x1 - x0) * (R - L), Y = v => B - v / 100 * (B - T);
+ s.appendChild(svg('rect', {x: X(90), y: T, width: R - X(90), height: B - T, fill: 'rgba(111,207,151,.07)'}));
+ s.appendChild(svg('text', {x: X(90) + 8, y: B - 10, fill: '#6fcf97', 'font-size': 12}, 'above 90% on the facts'));
+ [0, 25, 50, 75, 100].forEach(v => { s.appendChild(svg('line', {x1: L, x2: R, y1: Y(v), y2: Y(v), stroke: 'rgba(220,218,210,.12)'})); s.appendChild(svg('text', {x: L - 10, y: Y(v) + 4, fill: '#77756e', 'font-size': 12, 'text-anchor': 'end'}, v + '%')); });
+ [60, 70, 80, 90, 100].forEach(v => { s.appendChild(svg('line', {x1: X(v), x2: X(v), y1: B, y2: B + 5, stroke: 'rgba(220,218,210,.28)'})); s.appendChild(svg('text', {x: X(v), y: B + 20, fill: '#77756e', 'font-size': 12, 'text-anchor': 'middle'}, v + '%')); });
+ s.appendChild(svg('text', {x: R, y: B + 44, fill: '#a3a198', 'font-size': 12, 'text-anchor': 'end', 'letter-spacing': '.08em'}, 'FACTUAL QUESTIONS ANSWERED CORRECTLY →'));
+ s.appendChild(svg('text', {x: L, y: T - 8, fill: '#a3a198', 'font-size': 12, 'letter-spacing': '.08em'}, '↑ AUDIT ACCURACY'));
+ const pos = {'claude-fable-5-2': [10, -8, 'start'], 'gpt-6.1-sol': [10, 15, 'start'], 'gpt-6-astra': [-10, 5, 'end'], 'gpt-6.1-terra': [-10, 5, 'end'], 'claude-opus-5-5': [10, 5, 'start'], 'claude-sonnet-5-5': [-10, 5, 'end'], 'claude-haiku-5-5': [10, 5, 'start'], 'gpt-6-luna': [10, 5, 'start']};
+ D.models.forEach(m => {
+  const cx = X(m.facts6), cy = Y(m.audit6), p = pos[m.id];
+  const order = D.models.length - 1 - D.models.indexOf(m), wait = 'transition-delay:' + (0.25 + order * 0.11).toFixed(2) + 's';
+  s.appendChild(svg('circle', {cx, cy, r: 6.5, fill: '#6fcf97', stroke: '#0b1014', 'stroke-width': 2, class: 'pt', style: wait}));
+  s.appendChild(svg('text', {x: cx + p[0], y: cy + p[1], fill: '#dcdad2', 'font-size': 13, 'text-anchor': p[2], class: 'pl', style: wait}, m.short));
+ });
+})();
+
+const M = D.minute, S = {t: M.start, sel: [], flagged: new Set(), checked: false, zoom: 'near', focus: -1, timer: null};
+const VIEW = {near: {cx: 3.5, cy: 0, r: 8.5, ring: 5}, all: {cx: 0, cy: 0, r: 43, ring: 10}};
+$('#time').min = M.start; $('#time').max = M.end;
+const at = (cs, t) => { const tr = M.tracks[cs]; let best = null; for (const p of tr) { if (p[0] <= t) best = p; } return best || tr[0]; };
+const clock = s => String(Math.floor(s / 60)).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0');
+function scope(){
+ const s = $('#scope'), v = VIEW[S.zoom], k = 190 / v.r; s.innerHTML = '';
+ const X = e => 200 + (e - v.cx) * k, Y = n => 200 - (n - v.cy) * k;
+ for (let r = v.ring; r <= 45; r += v.ring) { s.appendChild(svg('circle', {cx: X(0), cy: Y(0), r: r * k, fill: 'none', stroke: 'rgba(111,207,151,.22)'})); s.appendChild(svg('text', {x: X(0) - r * k * 0.707 - 4, y: Y(0) + r * k * 0.707 + 12, fill: 'rgba(111,207,151,.55)', 'font-size': 12}, r)); }
+ s.appendChild(svg('line', {x1: X(0), y1: Y(0), x2: X(15), y2: Y(0), stroke: 'rgba(111,207,151,.6)', 'stroke-dasharray': '5 4'}));
+ [0.25, -0.25].forEach(n => s.appendChild(svg('line', {x1: X(0), y1: Y(n), x2: X(-1.6), y2: Y(n), stroke: '#dcdad2', 'stroke-width': 2})));
+ s.appendChild(svg('line', {x1: X(5), y1: Y(0) - 7, x2: X(5), y2: Y(0) + 7, stroke: '#ffb000', 'stroke-width': 1.5}));
+ s.appendChild(svg('text', {x: X(5), y: Y(0) + 20, fill: '#ffb000', 'font-size': 11, 'text-anchor': 'middle'}, 'final approach fix, 5 mi'));
+ Object.keys(M.tracks).forEach(cs => {
+  const p = at(cs, S.t), x = X(p[1]), y = Y(p[2]);
+  if (x < -20 || x > 420 || y < -20 || y > 420) return;
+  const on = S.sel.includes(cs), col = on ? '#ffb000' : '#cfe9d9';
+  M.tracks[cs].filter(q => q[0] < S.t && q[0] >= S.t - 25).forEach(q => s.appendChild(svg('circle', {cx: X(q[1]), cy: Y(q[2]), r: 1.6, fill: col, opacity: .55})));
+  const g = svg('g', {tabindex: 0, role: 'button', 'aria-label': 'Select ' + cs, style: 'cursor:pointer'});
+  g.appendChild(svg('rect', {x: x - 4, y: y - 4, width: 8, height: 8, fill: col}));
+  const far = Math.hypot(p[1], p[2]) > 8;
+  if (on || S.zoom === 'near' || far) {
+   g.appendChild(svg('line', {x1: x + 4, y1: y - 4, x2: x + 12, y2: y - 12, stroke: col, 'stroke-width': .8}));
+   g.appendChild(svg('text', {x: x + 14, y: y - 16, fill: col, 'font-size': 12}, cs));
+   g.appendChild(svg('text', {x: x + 14, y: y - 5, fill: col, 'font-size': 12}, String(Math.round(p[3] / 100)).padStart(3, '0') + ' ' + Math.round(p[4] / 10)));
+  }
+  const pick = () => { S.sel = [cs]; S.focus = -1; draw(); };
+  g.addEventListener('click', pick); g.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); pick(); } });
+  s.appendChild(g);
+ });
+}
+function readout(){
+ const r = $('#readout'); if (!S.sel.length) { r.textContent = 'Select a line or an aircraft to see where it is.'; return; }
+ const one = cs => { const p = at(cs, S.t); return cs + ': ' + Math.hypot(p[1], p[2]).toFixed(1) + ' miles from the runways, ' + p[3].toLocaleString('en-US') + ' ft, ' + p[4] + ' kt'; };
+ let out = S.sel.map(one).join('<br>');
+ if (S.sel.length === 2) { const a = at(S.sel[0], S.t), b = at(S.sel[1], S.t); out += '<br>' + Math.hypot(a[1] - b[1], a[2] - b[2]).toFixed(1) + ' miles apart, ' + Math.abs(a[3] - b[3]).toLocaleString('en-US') + ' ft apart in altitude'; }
+ r.innerHTML = out;
+}
+function radio(){
+ const box = $('#radio'); box.innerHTML = '';
+ M.lines.forEach((l, i) => {
+  const ev = l.ev && S.checked ? M.events[l.ev] : null;
+  const w = el('div', {class: 'linewrap' + (i === S.focus ? ' on' : '') + (ev ? ' ' + ev.kind : '')});
+  const b = el('button', {class: 'line', type: 'button'}, '<span class="t">' + l.t + '</span> <span class="c">[' + l.ch + ']</span> ' + l.text + '<span class="tag">' + (ev ? (ev.kind === 'failure' ? 'failure' : 'look-alike') : '') + '</span>');
+  b.onclick = () => { S.focus = i; S.t = Math.min(M.end, Math.max(M.start, Math.round(l.s / 5) * 5)); S.sel = l.ac.slice(); const nv = VIEW.near; if (S.sel.length) S.zoom = S.sel.every(cs => { const q = at(cs, S.t); return Math.abs(q[1] - nv.cx) < nv.r && Math.abs(q[2] - nv.cy) < nv.r; }) ? 'near' : 'all'; stop(); draw(); };
+  const f = el('button', {class: 'flag', type: 'button', 'aria-pressed': S.flagged.has(i), 'aria-label': (S.flagged.has(i) ? 'Remove the flag from' : 'Flag') + ' the line at ' + l.t}, S.flagged.has(i) ? 'Flagged' : 'Flag');
+  f.onclick = () => { if (S.checked) return; S.flagged.has(i) ? S.flagged.delete(i) : S.flagged.add(i); draw(true); };
+  w.appendChild(b); w.appendChild(f); box.appendChild(w);
+ });
+ $('#count').textContent = S.flagged.size + (S.flagged.size === 1 ? ' line flagged' : ' lines flagged');
+}
+function result(){
+ const r = $('#result'); if (!S.checked) { r.hidden = true; return; }
+ const hit = {}; let other = 0;
+ S.flagged.forEach(i => { const e = M.lines[i].ev; if (e) hit[e] = true; else other++; });
+ const keys = Object.keys(M.events), fails = keys.filter(k => M.events[k].kind === 'failure'), looks = keys.filter(k => M.events[k].kind === 'lookalike');
+ const found = fails.filter(k => hit[k]).length, left = looks.filter(k => !hit[k]).length;
+ let h = '<div class="score">You found ' + found + ' of ' + fails.length + ' scripted failures and left ' + left + ' of ' + looks.length + ' look-alikes alone. That is ' + Math.round(found / fails.length * left / looks.length * 100) + '% for this minute.</div>';
+ keys.forEach(k => { const e = M.events[k], f = e.kind === 'failure', good = f ? !!hit[k] : !hit[k];
+  h += '<div class="ev"><div class="st ' + (good ? 'good' : 'bad') + '">' + (f ? (good ? 'Found' : 'Missed') : (good ? 'Left alone' : 'Flagged')) + '</div><div><b>' + (f ? 'Failure: ' : 'Look-alike: ') + e.title + '</b>' + e.why + '</div></div>'; });
+ if (other) h += '<p class="cap" style="margin-top:12px">You also flagged ' + other + (other === 1 ? ' line that isn’t' : ' lines that aren’t') + ' a scripted event. In the benchmark that neither helps nor hurts.</p>';
+ r.innerHTML = h; r.hidden = false;
+}
+function draw(keepScroll){
+ const box = $('#radio'), y = box.scrollTop;
+ $('#time').value = S.t; $('#clock').textContent = clock(S.t);
+ scope(); readout(); radio(); result();
+ box.scrollTop = y;
+ $('#zoomnear').setAttribute('aria-pressed', S.zoom === 'near'); $('#zoomall').setAttribute('aria-pressed', S.zoom === 'all');
+}
+function stop(){ if (S.timer) { clearInterval(S.timer); S.timer = null; $('#play').textContent = 'Play'; } }
+$('#play').onclick = () => { if (S.timer) return stop(); if (S.t >= M.end) S.t = M.start; $('#play').textContent = 'Pause'; S.timer = setInterval(() => { S.t += 5; if (S.t >= M.end) { S.t = M.end; stop(); } draw(); }, 700); };
+$('#time').oninput = e => { stop(); S.t = +e.target.value; draw(); };
+$('#zoomnear').onclick = () => { S.zoom = 'near'; draw(); };
+$('#zoomall').onclick = () => { S.zoom = 'all'; draw(); };
+$('#check').onclick = () => { S.checked = true; draw(); $('#result').scrollIntoView({behavior: 'smooth', block: 'nearest'}); };
+$('#reset').onclick = () => { S.checked = false; S.flagged.clear(); S.focus = -1; S.sel = []; S.t = M.start; stop(); draw(); };
+draw();
+
+// ---- motion: the radar behind the title, sections coming in, and the approach-path scroll indicator
+document.documentElement.classList.add('js');
+(function hero(){
+ const c = $('#hero'); if (!c || !c.getContext) return;
+ const ctx = c.getContext('2d'), names = Object.keys(M.tracks), times = [...new Set(names.flatMap(n => M.tracks[n].map(p => p[0])))].sort((a, b) => a - b);
+ let W = 0, H = 0, ang = -1.2, last = 0, ti = 0, acc = 0, raf = 0, on = true;
+ const hold = still || location.hash.indexOf('hold') >= 0;
+ const size = () => { const d = Math.min(2, window.devicePixelRatio || 1); W = c.clientWidth; H = c.clientHeight; c.width = W * d; c.height = H * d; ctx.setTransform(d, 0, 0, d, 0, 0); };
+ const where = (n, f) => { const a = at(n, times[ti]), b = at(n, times[Math.min(ti + 1, times.length - 1)]); return [a[1] + (b[1] - a[1]) * f, a[2] + (b[2] - a[2]) * f, a[3], a[4]]; };
+ function draw(){
+  const cx = W * 0.6, cy = H * 0.5, k = H * 0.72 / 43, f = Math.min(1, acc / 900);
+  ctx.clearRect(0, 0, W, H);
+  ctx.lineWidth = 1; ctx.strokeStyle = 'rgba(111,207,151,.2)';
+  for (let r = 10; r <= 60; r += 10) { ctx.beginPath(); ctx.arc(cx, cy, r * k, 0, 6.2832); ctx.stroke(); }
+  ctx.beginPath(); ctx.moveTo(cx - 62 * k, cy); ctx.lineTo(cx + 62 * k, cy); ctx.moveTo(cx, cy - 62 * k); ctx.lineTo(cx, cy + 62 * k); ctx.strokeStyle = 'rgba(111,207,151,.08)'; ctx.stroke();
+  ctx.setLineDash([5, 5]); ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(cx + 15 * k, cy); ctx.strokeStyle = 'rgba(111,207,151,.55)'; ctx.stroke(); ctx.setLineDash([]);
+  ctx.strokeStyle = '#dcdad2'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(cx, cy - 0.25 * k - 1); ctx.lineTo(cx - 1.6 * k, cy - 0.25 * k - 1); ctx.moveTo(cx, cy + 0.25 * k + 1); ctx.lineTo(cx - 1.6 * k, cy + 0.25 * k + 1); ctx.stroke(); ctx.lineWidth = 1;
+  if (ctx.createConicGradient) { const g = ctx.createConicGradient(ang - 0.9, cx, cy); g.addColorStop(0, 'rgba(111,207,151,0)'); g.addColorStop(0.143, 'rgba(111,207,151,.2)'); g.addColorStop(0.1431, 'rgba(111,207,151,0)'); g.addColorStop(1, 'rgba(111,207,151,0)'); ctx.fillStyle = g; ctx.beginPath(); ctx.moveTo(cx, cy); ctx.arc(cx, cy, 62 * k, ang - 0.9, ang); ctx.closePath(); ctx.fill(); }
+  ctx.strokeStyle = 'rgba(111,207,151,.85)'; ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(cx + Math.cos(ang) * 62 * k, cy + Math.sin(ang) * 62 * k); ctx.stroke();
+  ctx.font = '11px "IBM Plex Mono", Consolas, monospace';
+  names.forEach(n => {
+   const p = where(n, f), x = cx + p[0] * k, y = cy - p[1] * k; if (x < -30 || x > W + 30 || y < -30 || y > H + 30) return;
+   let age = (ang - Math.atan2(y - cy, x - cx)) % 6.2832; if (age < 0) age += 6.2832;
+   const a = still ? 0.9 : 0.42 + 0.58 * Math.exp(-age * 0.9);
+   ctx.fillStyle = 'rgba(207,233,217,' + (a * 0.55).toFixed(3) + ')';
+   M.tracks[n].filter(q => q[0] < times[ti] && q[0] >= times[ti] - 25).forEach(q => ctx.fillRect(cx + q[1] * k - 1, cy - q[2] * k - 1, 2, 2));
+   ctx.fillStyle = 'rgba(207,233,217,' + a.toFixed(3) + ')'; ctx.fillRect(x - 3.5, y - 3.5, 7, 7);
+   ctx.strokeStyle = 'rgba(207,233,217,' + (a * 0.7).toFixed(3) + ')'; ctx.beginPath(); ctx.moveTo(x + 4, y - 4); ctx.lineTo(x + 12, y - 12); ctx.stroke();
+   ctx.fillText(n, x + 14, y - 16); ctx.fillText(String(Math.round(p[2] / 100)).padStart(3, '0') + ' ' + Math.round(p[3] / 10), x + 14, y - 4);
+  });
+  $('#hud').textContent = 'Metro approach · public sample · ' + clock(times[ti]);
+ }
+ function frame(now){ const dt = Math.min(64, now - (last || now)); last = now; ang = (ang + dt * 0.00105) % 6.2832; acc += dt; if (acc >= 900) { acc = 0; ti = (ti + 1) % (times.length - 1); } draw(); if (on) raf = requestAnimationFrame(frame); }
+ const start = () => { if (hold) { draw(); return; } cancelAnimationFrame(raf); last = 0; on = true; raf = requestAnimationFrame(frame); };
+ size(); start();
+ window.addEventListener('resize', () => { size(); draw(); });
+ if (window.IntersectionObserver && !hold) new IntersectionObserver(es => { on = es[0].isIntersecting && !document.hidden; if (on) start(); else cancelAnimationFrame(raf); }).observe(c);
+ document.addEventListener('visibilitychange', () => { if (document.hidden) { on = false; cancelAnimationFrame(raf); } else if (!hold) start(); });
+})();
+(function reveal(){
+ const items = [...document.querySelectorAll('main > *')];
+ if (still) { items.forEach(e => e.classList.add('in')); return; }
+ items.forEach(e => e.classList.add('rv'));
+ const io = new IntersectionObserver(es => es.forEach(e => { if (!e.isIntersecting) return; e.target.classList.add('in'); if (e.target.id === 'bars') { seen.bars = true; grow(); } io.unobserve(e.target); }), {rootMargin: '0px 0px -10% 0px', threshold: 0.08});
+ items.forEach(e => io.observe(e));
+ let wait = false;
+ const sweep = () => { wait = false; items.forEach(e => { if (!e.classList.contains('in') && e.getBoundingClientRect().top < innerHeight * 0.92) { e.classList.add('in'); if (e.id === 'bars') { seen.bars = true; grow(); } } }); };
+ addEventListener('scroll', () => { if (!wait) { wait = true; setTimeout(sweep, 80); } }, {passive: true});
+ setTimeout(sweep, 400);
+})();
+(function tape(){
+ const plane = $('#plane'), db = $('#db'), box = document.querySelector('.tape'); if (!plane) return; let tick = false;
+ const set = () => { tick = false; const max = document.documentElement.scrollHeight - innerHeight, p = max > 0 ? Math.min(1, Math.max(0, scrollY / max)) : 0;
+  plane.style.transform = 'translateY(' + (p * box.clientHeight).toFixed(1) + 'px)';
+  db.innerHTML = p > 0.995 ? 'ATC101<br>landed' : 'ATC101<br>' + String(Math.round((1 - p) * 100)).padStart(3, '0') + ' ' + Math.round((250 - 120 * p) / 10); };
+ addEventListener('scroll', () => { if (!tick) { tick = true; requestAnimationFrame(set); } }, {passive: true});
+ addEventListener('resize', set); set();
+})();
+})();
+</script>
+</body>
+</html>
