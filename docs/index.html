@@ -116,7 +116,7 @@ footer{margin-top:72px;border-top:1px solid var(--line2);padding-top:18px;font-s
 .hero + main{padding-top:8px}
 #hero{position:absolute;top:0;right:0;width:min(72vw,940px);height:100%;-webkit-mask-image:linear-gradient(to right,transparent 0,transparent 20%,#000 56%);mask-image:linear-gradient(to right,transparent 0,transparent 20%,#000 56%)}
 .herotext{position:relative;max-width:540px}
-.herotext h1{margin-top:18px}
+.herotext h1{margin-top:0}
 .hud{position:absolute;right:28px;bottom:18px;font:11px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:rgba(111,207,151,.8)}
 @media (max-width:900px){#hero{width:100vw;opacity:.4}.hud{display:none}}
 .rv{opacity:0;transform:translateY(18px);transition:opacity .7s ease,transform .7s cubic-bezier(.2,.7,.2,1)}
@@ -166,7 +166,6 @@ html.js .panelrow.in .verdict b{transform:none}
 </head>
 <body>
 <header class="hero"><canvas id="hero" aria-hidden="true"></canvas><div class="hud" id="hud" aria-hidden="true"></div><div class="herowrap"><div class="herotext">
-<div class="tags"><span>Benchmark</span><span>Build your own eval</span></div>
 <h1>ATC-Bench</h1>
 <div class="updated">Updated 11/17/2026</div>
 <p class="lede">Can a model audit air traffic control from a transcript, one minute at a time? Eight frontier models read scripted transcripts of a busy airport and check them against the FAA handbook, listing every place a requirement was not met. The best one finds 85% of the scripted failures.</p>
