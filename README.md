@@ -2,6 +2,8 @@
 
 Can a model audit air traffic control from a transcript, one minute at a time?
 
+The write-up, with charts and a minute you can audit yourself, is at [vrtnis.github.io/atc-bench](https://vrtnis.github.io/atc-bench/).
+
 ## Overview
 
 ATC-Bench asks whether an AI model can audit air traffic control. Each task is six or seven minutes of scripted radio and radar at a made-up airport. The model gets it one minute at a time and can only carry a small notes file forward. Btw, that's how controllers work too, with their flight strips. At the end the model audits the controllers against the FAA handbook. The best models found about 85% of the planted failures. That said, the top three each got only one recording in six completely right.
